@@ -1,0 +1,64 @@
+----
+Pig
+----
+Installation: 
+
+-->  tar -xvf pig-0.17.0.tar.gz and move extracted folder to /home/user/bigdata/ 
+-->  Add following to the .bashrc file at the end
+    export PIG_HOME=/home/user/bigdata/pig-0.17.0
+	export PATH=$PATH:$PIG_HOME/bin
+--> Add paramter below paramter to mapred-site.xml file in hadoop's etc folder.
+	<property>
+	  <name>mapreduce.jobhistory.address</name>
+	  <value>ubuntu:10020</value>
+	</property>
+--> after staring the hadoop cluster, start history server
+	hadoop/sbin> mr-jobhistory-daemon.sh start historyserver
+
+
+Pig Commands by Example :
+
+ 
+ pig -brief									// launches the pig interactive console called grunt
+ grunt> 
+	fs -cat /pigfiles/sampletab.txt			// an example that all the hadoop fs commands can be executed din the grunt console
+	records = LOAD '/pigfiles/sampletab.txt' AS (year:chararray, temperature:int, quality:int);    //  loads the file in the records field
+	DUMP records;  // dumps records on console
+		(1950,0,1)
+		(1950,22,1)
+		(1950,-11,1)
+		(1949,111,1)
+		(1949,78,1)
+	filtered_records = FILTER records BY temperature != 9999 AND quality IN (0,1,4,5,9);
+	DUMP filtered_records;
+	    (1950,0,1)
+		(1950,22,1)
+		(1950,-11,1)
+		(1949,111,1)
+		(1949,78,1)
+	grouped_records = GROUP filtered_records BY year;
+	DUMP grouped_records;
+		(1949,{(1949,78,1),(1949,111,1)})
+		(1950,{(1950,-11,1),(1950,22,1),(1950,0,1)})
+	max_temp = FOREACH grouped_records GENERATE group, MAX(filtered_records.temperature);
+	DUMP max_temp;
+		(1949,111)
+		(1950,22)
+	// below DESCRIBE describes the schema of the records,
+	DESCRIBE records;
+	DESCRIBE filtered_records;
+	DESCRIBE grouped_records;
+	DESCRIBE max_temp;
+	// Tool for generating a reasonably complete and concise sample datasheet, for a given pig script and input data.
+	ILLUSTRATE max_temp;
+	// to see the history of command
+	history
+		1   records = LOAD '/pigfiles/sampletab.txt' AS (year:chararray, temperature:int, quality:int);
+		2   filtered_records = FILTER records BY temperature != 9999 AND quality IN (0,1,4,5,9);
+		3   grouped_records = GROUP filtered_records BY year;
+		4   max_temp = FOREACH grouped_records GENERATE group, MAX(filtered_records.temperature);
+	
+ grunt>
+    dump records;
+	
+	STORE -- yet to read and do exercises on this

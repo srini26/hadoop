@@ -1,0 +1,36 @@
+	
+------
+Flume 
+------
+
+Installation:
+
+tar -xvf apache-flume-1.7.0-bin.tar.gz move extracted folder to /home/user/bigdata/
+-->  Add following to the .bashrc file at the end
+export FLUME_HOME=/home/user/bigdata/flume-1.7.0
+export PATH=$PATH:$FLUME_HOME/bin
+
+--> below is sample spooldir.conf to be placed in $FLUME_HOME/conf directory
+
+
+agent1.sources = source1
+agent1.sinks = sink1
+agent1.channels = channel1
+
+agent1.sources.source1.channels = channel1
+agent1.sinks.sink1.channel = channel1
+
+agent1.sources.source1.type = spooldir
+agent1.sources.source1.spoolDir = /tmp/spooldir
+
+
+agent1.sinks.sink1.type = hdfs
+agent1.sinks.sink1.hdfs.path = /tmp/flume
+agent1.sinks.sink1.hdfs.fllePrefix = events
+agent1.sinks.sink1.hdfs.fileSuffix = .log
+agent1.sinks.sink1.hdfs.inUsePrefix = _
+agent1.sinks.sink1.hdfs.fileType = DataStream
+
+agent1.channels.channel1.type = file
+
+flume-ng agent --conf-file spooldir.conf --name agent1 --conf $FLUME_HOME/conf -Dflume.root.logger=INFO,console

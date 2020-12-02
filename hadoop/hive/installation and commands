@@ -1,0 +1,337 @@
+Installation:
+
+--> Download Hive
+-->  Add following to the .bashrc file at the end
+export HIVE_HOME=/home/user/bigdata/hive-2.3.0
+export PATH=$PATH:$HIVE_HOME/bin
+
+Using embedded derby database :
+cd $HIVE_HOME
+schematool -dbType derby -initSchema   // This create the metastore_db in $HIVE_HOME folder, type jps to check if the "RunJar" is running, this is hive process
+hive  // launch hive
+> show databases;
+> create database india;
+> use india;
+> create table people(id int,name string);
+> insert into people values(1,'srinivas');
+> select * from people;
+$hadoop fs -ls /user/hive/warehouse // this display the db created in hdfs.
+
+The same db data in hdfs can be mapped to a different metastore, by creating a separate metastore in a different folder as below :
+cd $HIVE_HOME
+mkdir metastore1
+schematool -dbType derby -initSchema   // This create the metastore_db in $HIVE_HOME/metastore1 folder, type jps and check a separate "RunJar" is running, for is hive process
+hive  // launch hive
+> show databases;
+> create database india;
+> use india;
+> create table people(id int,name string);
+> select * from people;
+$hadoop fs -ls /user/hive/warehouse // check that  no new files are added, and it refers to the same data inserted earlier.
+
+
+creating mysql metastore:
+mysql> 
+	create database hms;
+	create user 'hive'@'localhost' identified by 'hive';
+	grant all on hms.* to 'hive'@localhost;
+	use hms;
+	show tables;
+	flush privileges;
+--> create hive-site.xml file in $HIVE_HOME/conf folder with follow content
+		<configuration>
+		  <property>
+			<name>hive.metastore.uris</name>
+			<value>thrift://localhost:9083</value>
+		  </property>
+		  <property>
+			<name>javax.jdo.option.ConnectionDriverName</name>
+			<value>com.mysql.jdbc.Driver</value>
+		  </property>
+		  <property>
+			<name>javax.jdo.option.ConnectionURL</name>
+			<value>jdbc:mysql://localhost:3306/hms</value>
+		  </property>
+		  <property>
+			<name>javax.jdo.option.ConnectionUserName</name>
+			<value>hive</value>
+		  </property>
+		  <property>
+			<name>javax.jdo.option.ConnectionPassword</name>
+			<value>hive</value>
+		  </property>
+		</configuration>
+		
+-->  download mysql jdbc driver to 
+cd $HIVE_HOME
+mkdir mysqlmetastore
+cd mysqlmetastore 
+
+--> copy the mysql-connector-java-5.1.25.zip or the latest version of library // note there were some parsing errors and creation of schema has thrown if older version of schema is used.
+schematool -dbType mysql -initSchema
+hive --service hiveserver2   // start hive server
+hive --service metastore	 // start the metastore service
+
+Hive Documentation:
+--> hive.apache.org
+--> https://www.dezyre.com/hadoop-tutorial/hive-commands , There is a nice description of hive commands at this location
+--> https://cwiki.apache.org/confluence/display/Hive/AdminManual+Configuration   , hive configuration paramters , set using "set" command
+--> https://cwiki.apache.org/confluence/display/Hive/Home
+--> https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DDL
+--> https://cwiki.apache.org/confluence/display/Hive/Home#Home-UserDocumentation
+
+hive --help     // lists the help for top level hive commands
+
+hive // launch hive
+> create database india;
+> use india;
+> create table people(id int,name string);
+> select * from people;
+
+--> If hive-site.xml file is present then hive connects to the metastore as specified in this configuration file. 
+--> If want to use the local derby metastore mv hive-site.xml  hive-site.xml.bak
+--> If want to use the derby metastore, always ensure that are in the same folder as that of the metastore folder which is created in the same folder , that is created by launching schematool.
+
+
+Hive exercises(Commands ,DDL, DCL,DML etc.) , using myql metastore:
+Ensure the following processes are running in background:
+		hive --service hiveserver2   // start hive server , preferably in background
+		hive --service metastore     // start meta store , preferably in background
+
+Launch hive from command prompt:
+hive -f dbs.hql     								// write queries afile and directly launch from command prompt 
+hive -e "show databases;"        					// the sql script can be direclty launched from command prompt, note here "show databases" is also a sql script in mysql.
+
+hive  // launch hive from command prompt, used mysql metastore so some of properties set on tables and databases can be veriifed in mysql db.
+> show databases like "i.*";   					// lists the databases based on the wildcard.
+> create database catalog; create schema catalog   	// command to create database, note database and schema are used interchangeable in hive.
+> create database if not exists catalog;			// ensures no error is thown during db creation, creates only when db does not exist.
+> create database if not exists inventory COMMENT 'This is the database for product inventory';    // add a comment to database
+
+mysql   // launch mysql 
+    > show databases;
+	> use hms;
+	> SELECT * FROM DBS;                // This query shows the databases and comments set on it in the using the above hive command that created the database with comments.
+	
+
+hive > create database if not exists ebay COMMENT 'This is the database for product inventory' LOCATION  '/user/hive/warehouse/ebay';
+$ hadoop fs -ls /user/hive/warehouse  // this lists the ebay subfolder added for the ebay database, note that .db extension on the folder does not appear as we did not specify that in the LOCATION, otherwise .db is prefixed by default.
+NOTE: Any tables and objects are saved into separate files/ subfolders under the above hdfs file created.
+
+> create database if not exists temp COMMENT 'temporary data' with dbproperties('created by' = 'Srinivas', 'create_date'='1th Sept 2017');
+> desc database extended temp;  // extended option allows to see all the metadata set on the databsae above.
+
+
+> alter database temp set dbproperties('created by' = 'Pokuri', 'create_date'='1th Sept 2017'); // 
+
+hive>
+set;										// show all properties avaialble in hive console that could be set, refer to above url
+set hive.cli.print.current.db=true; 		// shows the current db at prompt of hive console
+set hive.cli.print.header=true;				// shows the header
+describe formatted people;					// shows complete details of table(people) , column comments, where it is stored, hdfs storage, SerDe, Input and Output Format.
+
+
+hive>
+create table if not exists statecapitals(state string comment 'state name',capital string comment 'capital name');
+describe formatted statecapitals;
+insert into table statecapitals values('karnataka','bangalore');
+--> check the files created in the hdfs.
+hadoop fs -ls /user/hive/warehouse/india.db/statecapitals/000000_0
+hadoop fs -get /user/hive/warehouse/india.db/statecapitals/000000_0
+vi hadoop fs -get /user/hive/warehouse/india.db/statecapitals/000000_0  // can observe that the default delimiter in the saved records is ctrl+A, we can change this using storage option
+
+hive>
+create table if not exists statecapitals1(state string comment 'state name',capital string comment 'capital name') comment 'table: state capitals1' row format delimited fields terminated by '\t' stored as textfile;
+describe formatted statecapitals1;
+
+// the above tables are called managed tables in hive paralence where data in hdfs is deleted when table is dropped, external tables when dropped  leave the data in hdfs without deleting them.
+hive>
+create external table if not exists statecapitals2(state string comment 'state name',capital string comment 'capital name') comment 'table: state capitals1' row format delimited fields terminated by '\t' stored as textfile;
+create temporary table if not exists statecapitals3(state string comment 'state name',capital string comment 'capital name')  // this is only for that session, this data is not saved to hdfs
+insert to statecapitals3 values('karnataka','bengaluru');
+select * from statecapitals3 limit 10; // lists only top 10 rows
+
+// save in different file formats.
+create table if not exists statecapitals4(state string comment 'state name',capital string comment 'capital name') comment 'table: state capitals1' row format delimited fields terminated by '\t' stored as textfile (eg. parquestfile , avrofile,sequencefile);
+
+// below an example of creating tables with array,struct and map fields.
+create external table employee(name string, age int, place string, skills ARRAY<STRING>, address STRUCT<dno:String,flr:String,area:String,city:String,state:String,pin:bigint>, salary Map<String,bigint>) row format delimited fields terminated by '\t' collection items terminated by ',' map keys terminated by '#';
+vim employee  // save file with below content
+	srinivas	10	bangalore	hadoop,spark,ml320,divyajyothi,kasavanahalli,bangalore	basic#1000,hra#500,others#100
+	pokuri        20      bangalore       hadoop,spark,ml 320,divyajyothi,kasavanahalli,bangalore basic#1000,hra#500,others#100 
+hadoop fs -put -f employee /user/hive/warehouse/india.db/employee  	// load "employee" file to specified hdfs folder
+hadoop fs -ls /user/hive/warehouse/india.db/employee    			// 
+	-rw-r--r--   1 user supergroup        108 2017-09-14 07:29 /user/hive/warehouse/india.db/employee/employee
+hive>
+	select skills from employee;		
+	select salary from employee;
+	select skills[0] from employee; 				// way to pull first element of array(when array is an column of a table)
+	select salary["basic"] from employee; 			// way to pull element from map(when map is an column of a table)
+	
+	
+DML
+----
+The following are ways various ways moving and in and out of hive database.
+
+// loading data from a file into hive directly
+vim names  // save file with below content
+	srinivas|pokuri|lakshmi|devathi|aditya
+create table names(name string);  
+load data local inpath '/home/user/names' into table names;         	// this loads the entire row as single field into the names table from local directory
+load data local inpath '/home/user/names' overwrite into table names;	// overwrites into the table
+
+-->using explode and split functions in hive during retrieval using select command
+select explode(split(name, '\\|')) as name from names;				// splits the string separated by | and returns each value as a separate row	
+
+// dump records into a file from a table
+insert overwrite directory '/home/user/people' select * from people;  // writes data to specified hdfs directory
+insert overwrite local directory '/home/user/people' select * from people;  // writes data to specified local directory
+
+// using sqoop for moving files from RDBMS/mysql to hive.
+mysql> use india;
+mysql> create table indiarivers(river varchar(20),origin varchar(20));
+mysql> insert into indiarivers values('cauvery','talakaveri');
+mysql> alter table indiarivers add primary key(river);
+sqoop import --connect jdbc:mysql://localhost:3306/india --username root --password password  --table indiarivers --hive-database india --create-hive-table --hive-table indiarivers --hive-import
+hadoop fs -ls /user/hive/warehouse/india.db/indiarivers/part-m-00000   // get this file to local folder and observer the default delimiter is ctrl+AND
+
+
+// flume to hive  (almost done but not working yet , there is some minor issue that needs to be looked into, especially with the way the tables are created with some options)
+cd $FLUME_HOME/conf
+vim hive.conf  // create hive.conf file with below content.   http://flume.apache.org/FlumeUserGuide.html , the paramters for sources and sinks
+		NcAgent.sources=src
+		NcAgent.channels=mc
+		NcAgent.sinks=snk
+
+		NcAgent.sources.src.type=netcat
+		NcAgent.sources.src.bind=ubuntu
+		NcAgent.sources.src.port=9999
+
+		NcAgent.sinks.snk.type=hive
+		NcAgent.sinks.snk.hive.metastore=thrift://localhost:9083
+		NcAgent.sinks.snk.hive.database=india
+		NcAgent.sinks.snk.hive.table=flumetohive
+		NcAgent.sinks.snk.serializer=DELIMITED
+		NcAgent.sinks.snk.serializer.fieldnames=code,desc
+		NcAgent.sinks.snk.serializer.delimiter=","
+		NcAgent.sinks.snk.serializer.serdeSeparator=','
+
+		NcAgent.channels.mc.type=memory
+		NcAgent.channels.mc.capacity=100
+		NcAgent.channels.mc.transactionCapacity=100
+
+		NcAgent.sources.src.channels=mc
+		NcAgent.sinks.snk.channel=mc
+
+hive> create table flumetohive(code string, desc string) row format delimited fields terminated by ','  tblproperties("transactional=true");  // this piece is not working yet. This needs to be looked into.
+
+
+cp $HIVE_HOME/lib/*hive*.jar $FLUME_HOME/lib/  	// copy hive jars in lib folder to flume lib folder
+cp $HIVE_HOME/hcatalog/share/hcatalog/hive-hcatalog*.jar $FLUME_HOME/lib			// copy hcatalog libraries to flume lib folder
+	
+cd $FLUME_HOME/conf
+flume-ng agent -n NcAgent -c conf/ -f hive.conf   // for some reason the hive.conf is being picked by flume-ng only when in $HIVE_HOME/conf folder. Note: flume-ng agent --conf-file hive.conf --name NcAgent --conf $FLUME_HOME/conf is not working , need to investigate why
+nc 192.168.80.129 9999   // launch the nc , where host is the IP/localhost as specifed in paramter NcAgent.sources.src.bind
+	1,one				// enter the record, this will be picked by nc agent and routed to hive, hive inturns saves the data into table flume2hive
+	
+// pig to hive
+Add the following to the ~/.bashrc file
+HCAT_HOME=/home/user/bigdata/hive-2.3.0/hcatalog   
+
+$ mr-jobhistory-daemon.sh start historyserver		// launch the history server for pig to run.
+pig -useHCatalog		// this loads the hcatalog libraries as well.
+grunt> data = LOAD 'india.people' USING org.apache.hive.hcatalog.pig.HCatLoader();   // this the data in india.people table in hive in the pigs data relation, crate a table in file if it does not exist.
+grunt> dump data;
+grunt> describe data;
+grunt> store data into 'india.people_pighatcatload' USING org.apache.hive.hcatalog.pig.HCatStorer();  // ensure the table people_pighatcatload is already created
+
+
+// hive to hive
+hive>create table india.people1 as select * from india.people
+
+
+// hive to hdfs
+hive>insert overwrite directory '/pig/people' select * from people;
+
+
+// hive to local folder
+hive> insert overwrite local directory '/home/user/temp/people' select * from people;
+
+
+
+//Table partitions - static partitioning : 
+vim /home/user/temp/people1/people1file // subsequently we only refer the main directory /home/user/temp/people1, not individual files
+	1|aditya|8
+	2|anvita|8
+	3|siddu|5
+	
+hive>
+create table part_people(sno int, name string, age int) partitioned by (place string) row format delimited fields terminated by '|';  // note that you can have multiple fields as part of your partition
+describe formatted part_people;
+load data local inpath '/home/user/temp/people1' into table part_people partition(place = 'Bangalore');
+select * from part_people;  // see that a new column place has been added implicitly.
+
+load data local inpath '/home/user/temp/people1/' into table part_people partition(place = 'Hyderabad');  // change values in above file and load different records
+select * from part_people;
+
+$ hadoop fs -ls /user/hive/warehouse/india.db/part_people
+drwx------   - user supergroup          0 2017-09-15 07:07 /user/hive/warehouse/india.db/part_people/place=Bangalore
+drwx------   - user supergroup          0 2017-09-15 07:08 /user/hive/warehouse/india.db/part_people/place=Hyderabad
+
+hive>
+insert into part_people partition(place = 'mysore') select sno,name,age from part_people where place='Bangalore';
+
+1	aditya	8	Bangalore
+2	anvita	8	Bangalore
+3	siddu	5	Bangalore
+1	aditya	8	mysore
+2	anvita	8	mysore
+3	siddu	5	mysore
+
+
+// Table dynamic partitioning (non strict mode)
+hive>
+set hive.exec.dynamic.partition.mode=nonstrict;			// dynamic partitioning in non-strict mode
+set hive.exec.max.dynamic.partitions.pernode=300;
+insert into table part_people partition(place) select sno,name,age,'Vijayawda' from part_people;
+select * from part_people;
+show partitions part_people           // if you want to see for eg. sub partitions within a given paritition  show partitions part_people partition(state='Karnataka');
+$ hadoop fs -ls /user/hive/warehouse/india.db/part_people
+
+
+// Table dynamic partitioning (strict mode) 
+		
+		Note that, this dynamic partition strict mode is different from hive.mapred.mode=strict, but it is right time to discuss about mapreduce strict mode also, because if this property is set to strict, then we cannot certain queries on partitioned tables as well. 
+		
+		In mapreduce strict mode (hive.mapred.mode=strict) , some risky queries are not allowed to run. They include:
+		1.Cartesian Product.
+		2.No partition being picked up for a query.
+		3.Comparing bigints and strings.
+		4.Comparing bigints and doubles.
+		5.Orderby without limit.
+		Note: According to point 2 and 5, we can not use SELECT statements without at least one partition key filter (like WHERE country=’US’) or ORDER BY clause without LIMIT condition on partitioned tables. But by default this property is set to nonstrict.
+		
+set hive.exec.dynamic.partition.mode=strict;
+hive.mapred.mode=strict;			// this should be set to strict to execute select statements by specifying the partition field as one of the filter.
+select * from part_people;			// this will not work now.
+select * from part_people where place='Bangalore' // this works as we have partition field in the where clause
+select * from part_people where place='Bangalore' order by name limit 20 //  this works in strict mode.
+
+// Table partitioning and bucketing:
+
+hive>
+create table part_bucket_people(sno int, name string, age int) COMMENT 'A partitioning bucketing people table' partitioned by (state string,place string) CLUSTERED BY (age) SORTED BY (sno) INTO 5 BUCKETS row format delimited fields terminated by '|' STORED AS textfile;
+
+create table part_bucket_people(sno int, name string, age int) partitioned by (state string,place string) CLUSTERED BY (age) SORTED BY (sno) INTO 5 BUCKETS STORED AS textfile row format delimited fields terminated by '|' COMMENT 'A partitioning bucketing people table';
+
+insert into table part_bucket_people partition(state,place) values(1,'aditya',8,'karnataka','bangalore');
+
+$ hadoop fs -ls /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore
+-rwx------   1 user supergroup          0 2017-09-15 10:37 /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore/000000_0
+-rwx------   1 user supergroup          0 2017-09-15 10:37 /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore/000001_0
+-rwx------   1 user supergroup          0 2017-09-15 10:37 /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore/000002_0
+-rwx------   1 user supergroup         11 2017-09-15 10:37 /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore/000003_0
+-rwx------   1 user supergroup          0 2017-09-15 10:37 /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore/000004_0
+
+hadoop fs -cat /user/hive/warehouse/india.db/part_bucket_people/state=karnataka/place=bangalore/000003_0
+1|aditya|8
