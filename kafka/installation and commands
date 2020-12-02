@@ -1,0 +1,41 @@
+------
+Kafka 
+------
+Installation:
+
+--> Download kafka.
+-->  Add following to the .bashrc file at the end
+export KAFKA_HOME=/home/user/bigdata/kafka_2.12-0.11.0.0
+export PATH=$PATH:$FLUME_HOME/bin
+
+
+$KAFKA_HOME/bin/zookeeper-server-start.sh -daemon $KAFKA_HOME/config/zookeeper.properties // starts zookeeper
+$KAFKA_HOME/bin/kafka-server-start.sh -daemon $KAFKA_HOME/config/server.properties // starts kafka broker
+
+cd $KAFKA_HOME/bin
+kafka-topics.sh --list --zookeeper localhost:2181
+kafka-topics.sh --create --topic sample --partitions 3 --replication-factor 1 --zookeeper localhost:2181
+
+kafka-console-producer.sh --broker-list localhost:9092 --topic sample // open a console to write to a topic from console
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic sample --from-beginning //  read topic from  console
+kafka-topics.sh --describe sample --zookeper localhost:2181
+
+
+Starting from Windows:
+-----------------------
+
+C:\opensource\zookeeper\apache-zookeeper-3.5.5\bin>
+zkServer.cmd
+
+C:\opensource\kafka\kafka_2.12-2.3.0>.\bin\windows\kafka-server-start.bat .\config\server.properties
+
+c:\opensource\kafka\kafka_2.12-2.3.0\bin\windows>kafka-console-producer --broker-list localhost:9092 --topic my-topic
+
+c:\opensource\kafka\kafka_2.12-2.3.0\bin\windows>kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic my-topic
+
+
+
+
+Relevant resources:
+
+Getting started: http://cloudurable.com/blog/kafka-tutorial-kafka-from-command-line/index.html
